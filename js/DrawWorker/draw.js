@@ -13,12 +13,13 @@ $(function () {
     });
     
     function initialGlobeView() {
-	    viewer = new Cesium.Viewer('cesiumContainer', {
-            imageryProvider : Cesium.createTileMapServiceImageryProvider({
-        			url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-    		}),
-	        selectionIndicator: true
-	    });	    
+		viewer = new Cesium.Viewer('cesiumContainer', {
+				imageryProvider : Cesium.createTileMapServiceImageryProvider({
+								url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+					}),
+				baseLayerPicker : false,
+				geocoder : false
+		});     
     }
     
     function initDrawHelper() {
