@@ -63,9 +63,13 @@ $(function () {
 
         });
         toolbar.addListener('polygonCreated', function (event) {
-            loggingMessage('钳击箭头');
+             loggingMessage('钳击箭头');
+	     console.log("有朋友留言询问怎么添加高度，此为样例,\n在此处添加只是修改了最终多边形的高度,\n如要将编辑图形也要一并修改,\n还需修改DrawWorker里生成编辑图形的源码，【此功能待后续优化】");
+	     var height =  Number(prompt("请输入高度"));
+	         height = isNaN(height)?0:height;
             var polygon = new DrawHelper.PolygonPrimitive({
                 positions: event.positions,
+				height:height,
                 custom:event.custom,
                 material: Cesium.Material.fromType(Cesium.Material.ColorType)
             });
