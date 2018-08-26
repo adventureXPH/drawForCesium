@@ -3,6 +3,7 @@ var doubleArrowDefualParam = {type:"doublearrow",headHeightFactor:.25,
 	headWidthFactor:.3,neckHeightFactor:.85,fixPointCount:4,neckWidthFactor:.15}
 var tailedAttackArrowDefualParam = {headHeightFactor:.18,headWidthFactor:.3,neckHeightFactor:.85,
     neckWidthFactor:.15,tailWidthFactor:.1,headTailFactor:.8,swallowTailFactor:1};
+var fineArrowDefualParam = {tailWidthFactor:0.15,neckWidthFactor:0.20,headWidthFactor:0.25,headAngle:Math.PI/8.5,neckAngle:Math.PI/13};	
 xp.algorithm = {},xp.algorithm.doubleArrow = function(inputPoint){
 	this.connPoint = null; 
 	this.tempPoint4 = null; 
@@ -203,4 +204,30 @@ xp.algorithm = {},xp.algorithm.doubleArrow = function(inputPoint){
 	});
 	if(change) newArray.push(last);	
 	return  newArray;
+},xp.algorithm.fineArrow = function(tailPoint,headerPoint){
+	    if((tailPoint.length<2)||(headerPoint.length<2))return;
+        //画箭头的函数
+        let tailWidthFactor=fineArrowDefualParam.tailWidthFactor;
+        let neckWidthFactor=fineArrowDefualParam.neckWidthFactor;
+        let headWidthFactor=fineArrowDefualParam.headWidthFactor;
+        let headAngle=fineArrowDefualParam.headAngle;
+        let neckAngle=fineArrowDefualParam.neckAngle;
+		var o = [];
+		o[0] = tailPoint;
+		o[1] = headerPoint;
+		e = o[0],
+		r = o[1],
+		n = P.PlotUtils.getBaseLength(o),
+		g = n *tailWidthFactor,//尾部宽度因子
+		i = n *neckWidthFactor,//脖子宽度银子
+		s = n *headWidthFactor,//头部宽度因子
+		a = P.PlotUtils.getThirdPoint(r, e, P.Constants.HALF_PI, g, !0),
+		l = P.PlotUtils.getThirdPoint(r, e, P.Constants.HALF_PI, g, !1),
+		u = P.PlotUtils.getThirdPoint(e, r, headAngle, s, !1),
+		c = P.PlotUtils.getThirdPoint(e, r, headAngle, s, !0),
+		p = P.PlotUtils.getThirdPoint(e, r, neckAngle, i, !1),
+		h = P.PlotUtils.getThirdPoint(e, r, neckAngle, i, !0),
+        d=[];
+        d.push(a[0],a[1],p[0],p[1],u[0],u[1],r[0],r[1],c[0],c[1],h[0],h[1],l[0],l[1],e[0],e[1]);   
+		return Cesium.Cartesian3.fromDegreesArray(d);    
 }
