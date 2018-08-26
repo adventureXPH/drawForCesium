@@ -13,12 +13,12 @@ $(function () {
     });
     
     function initialGlobeView() {
-		viewer = new Cesium.Viewer('cesiumContainer', {
-				imageryProvider : Cesium.createTileMapServiceImageryProvider({
-								url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-					}),
-				baseLayerPicker : false,
-				geocoder : false
+	 viewer = new Cesium.Viewer('cesiumContainer', {
+			imageryProvider : Cesium.createTileMapServiceImageryProvider({
+					url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+			}),
+			baseLayerPicker : false,
+			geocoder : false
 		});     
     }
     
@@ -28,48 +28,13 @@ $(function () {
         var drawHelper = new DrawHelper(viewer);
         var scene = viewer.scene;
         var toolbar = drawHelper.addToolbar(document.getElementById("toolbar"), {
-            buttons: ['marker', 'polyline', 'polygon', 'circle', 'extent',"tailedAttackArrow"]
+            buttons: ['polygon','extent',"tailedAttackArrow"]
         });
-        toolbar.addListener('markerCreated', function (event) {
-            loggingMessage('Marker created at ' + event.position.toString());
-            // create one common billboard collection for all billboards
-            var b = new Cesium.BillboardCollection();
-            scene.primitives.add(b);
-            var billboard = b.add({
-                show: true,
-                position: event.position,
-                pixelOffset: new Cesium.Cartesian2(0, 0),
-                eyeOffset: new Cesium.Cartesian3(0.0, 0.0, 0.0),
-                horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-                verticalOrigin: Cesium.VerticalOrigin.CENTER,
-                scale: 1.0,
-                image: './images/glyphicons_242_google_maps.png',
-                color: new Cesium.Color(1.0, 1.0, 1.0, 1.0)
-            });
-            billboard.setEditable();
-        });
-        toolbar.addListener('polylineCreated', function (event) {
-            loggingMessage('Polyline created with ' + event.positions.length + ' points');
-            var polyline = new DrawHelper.PolylinePrimitive({
-                positions: event.positions,
-                width: 5,
-                geodesic: true
-            });
-            scene.primitives.add(polyline);
-            polyline.setEditable();
-            polyline.addListener('onEdited', function (event) {
-                loggingMessage('Polyline edited, ' + event.positions.length + ' points');
-            });
 
-        });
         toolbar.addListener('polygonCreated', function (event) {
-             loggingMessage('钳击箭头');
-	     console.log("有朋友留言询问怎么添加高度，此为样例,\n在此处添加只是修改了最终多边形的高度,\n如要将编辑图形也要一并修改,\n还需修改DrawWorker里生成编辑图形的源码，【此功能待后续优化】");
-	     var height =  Number(prompt("请输入高度"));
-	         height = isNaN(height)?0:height;
+            loggingMessage('钳击箭头');
             var polygon = new DrawHelper.PolygonPrimitive({
                 positions: event.positions,
-				height:height,
                 custom:event.custom,
                 material: Cesium.Material.fromType(Cesium.Material.ColorType)
             });
@@ -93,30 +58,17 @@ $(function () {
             	loggingMessage('攻击箭头');
             });
 
-        });
-        toolbar.addListener('circleCreated', function (event) {
-            loggingMessage('Circle created: center is ' + event.center.toString() + ' and radius is ' + event.radius.toFixed(1) + ' meters');
-            var circle = new DrawHelper.CirclePrimitive({
-                center: event.center,
-                radius: event.radius,
-                material: Cesium.Material.fromType(Cesium.Material.RimLightingType)
-            });
-            scene.primitives.add(circle);
-            circle.setEditable();
-            circle.addListener('onEdited', function (event) {
-                loggingMessage('Circle edited: radius is ' + event.radius.toFixed(1) + ' meters');
-            });
-        });
-        toolbar.addListener('extentCreated', function (event) {
-            var extent = event.extent;
+        });             
+        toolbar.addListener('straightArrowCreated', function (event) {
+            var arrow = event.arrow;
             loggingMessage('箭头创建');
-            var extentPrimitive = new DrawHelper.ExtentPrimitive({
-                extent: extent,
+            var straightArrowPrimitive = new DrawHelper.StraightArrowPrimitive({
+                arrow: arrow,
                 material: Cesium.Material.fromType(Cesium.Material.ColorType)
             });
-            scene.primitives.add(extentPrimitive);
-            extentPrimitive.setEditable();
-            extentPrimitive.addListener('onEdited', function (event) {
+            scene.primitives.add(straightArrowPrimitive);
+            straightArrowPrimitive.setEditable();
+            straightArrowPrimitive.addListener('onEdited', function (event) {
             	 loggingMessage('箭头创建');
             });
         });
