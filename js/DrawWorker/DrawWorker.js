@@ -175,6 +175,21 @@ var DrawHelper = (function () {
     var defaultCircleOptions = copyOptions(defaultShapeOptions, {});
     var defaultEllipseOptions = copyOptions(defaultSurfaceOptions, { rotation: 0 });
 
+    var defaultPolylineOptions = copyOptions(defaultShapeOptions, {
+        width: 5,
+        geodesic: true,
+        granularity: 10000,
+        appearance: new Cesium.PolylineMaterialAppearance({
+            aboveGround: false
+        }),
+        material: material
+    });
+
+    //    Cesium.Polygon.prototype.setStrokeStyle = setStrokeStyle;
+    //    
+    //    Cesium.Polygon.prototype.drawOutline = drawOutline;
+    //
+
     var ChangeablePrimitive = (function () {
         function _() {
         }
@@ -312,39 +327,39 @@ var DrawHelper = (function () {
         return _;
     })();
 
-    _.StraightArrowPrimitive = (function () {
+    _.ExtentPrimitive = (function () {
         function _(options) {
 
-            if (!Cesium.defined(options.arrow)) {
-                throw new Cesium.DeveloperError('arrow is required');
+            if (!Cesium.defined(options.extent)) {
+                throw new Cesium.DeveloperError('Extent is required');
             }
 
             options = copyOptions(options, defaultSurfaceOptions);
 
             this.initialiseOptions(options);
 
-            this.setArrow(options.arrow);
+            this.setExtent(options.extent);
 
         }
 
         _.prototype = new ChangeablePrimitive();
 
-        _.prototype.setArrow = function (arrow) {
-            this.setAttribute('arrow', arrow);
+        _.prototype.setExtent = function (extent) {
+            this.setAttribute('extent', extent);
         };
 
-        _.prototype.getArrow = function () {
-            return this.getAttribute('arrow');
+        _.prototype.getExtent = function () {
+            return this.getAttribute('extent');
         };
 
         _.prototype.getGeometry = function () {
 
-            if (!Cesium.defined(this.arrow)) {
+            if (!Cesium.defined(this.extent)) {
                 return;
             }
 
 			return Cesium.PolygonGeometry.fromPositions({
-                positions: this.arrow,
+                positions: this.extent,
                 height: this.height,
                 vertexFormat: Cesium.EllipsoidSurfaceAppearance.VERTEX_FORMAT,
                 stRotation: this.textureRotationAngle,
@@ -356,7 +371,7 @@ var DrawHelper = (function () {
 
         _.prototype.getOutlineGeometry = function () {
         	 return Cesium.PolygonOutlineGeometry.fromPositions({
-                positions: this.arrow
+                positions: this.extent
            });
         }
 
@@ -465,7 +480,61 @@ var DrawHelper = (function () {
         }
 
         return _;
-    })();    
+    })();
+    
+    _.PolylinePrimitive = (function () {
+
+        function _(options) {
+
+            options = copyOptions(options, defaultPolylineOptions);
+
+            this.initialiseOptions(options);
+
+        }
+
+        _.prototype = new ChangeablePrimitive();
+
+        _.prototype.setPositions = function (positions) {
+            this.setAttribute('positions', positions);
+        };
+
+        _.prototype.setWidth = function (width) {
+            this.setAttribute('width', width);
+        };
+
+        _.prototype.setGeodesic = function (geodesic) {
+            this.setAttribute('geodesic', geodesic);
+        };
+
+        _.prototype.getPositions = function () {
+            return this.getAttribute('positions');
+        };
+
+        _.prototype.getWidth = function () {
+            return this.getAttribute('width');
+        };
+
+        _.prototype.getGeodesic = function (geodesic) {
+            return this.getAttribute('geodesic');
+        };
+
+        _.prototype.getGeometry = function () {
+
+            if (!Cesium.defined(this.positions) || this.positions.length < 2) {
+                return;
+            }
+
+            return new Cesium.PolylineGeometry({
+                positions: this.positions,
+                height: this.height,
+                width: this.width < 1 ? 1 : this.width,
+                vertexFormat: Cesium.EllipsoidSurfaceAppearance.VERTEX_FORMAT,
+                ellipsoid: this.ellipsoid
+            });
+        }
+
+        return _;
+    })();
 
     var defaultBillboard = {
         iconUrl: "./img/dragIcon.png",
@@ -642,7 +711,114 @@ var DrawHelper = (function () {
     _.prototype.startDrawingPolygon = function (options) {
         var options = copyOptions(options, defaultSurfaceOptions);
         this.startDrawingPolyshape(true, options);
-    }  
+    }
+
+    _.prototype.startDrawingPolyline = function (options) {
+        var options = copyOptions(options, defaultPolylineOptions);
+        var isPolygon = false;
+
+        this.startDrawing(
+            function () {
+                primitives.remove(poly);
+                markers.remove();
+                mouseHandler.destroy();
+                tooltip.setVisible(false);
+            }
+        );
+
+        var _self = this;
+        var scene = this._scene;
+        var primitives = scene.primitives;
+        var tooltip = this._tooltip;
+
+        var minPoints = isPolygon ? 3 : 2;
+        var poly;
+        if (isPolygon) {
+            poly = new DrawHelper.PolygonPrimitive(options);
+        } else {
+            poly = new DrawHelper.PolylinePrimitive(options);
+        }
+        poly.asynchronous = false;
+        primitives.add(poly);
+
+        var positions = [];
+        var markers = new _.BillboardGroup(this, defaultBillboard);
+
+        var mouseHandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+
+        // Now wait for start
+        mouseHandler.setInputAction(function (movement) {
+            if (movement.position != null) {
+                var cartesian = scene.camera.pickEllipsoid(movement.position, ellipsoid);
+                if (cartesian) {
+                    // first click
+                    if (positions.length == 0) {
+                        positions.push(cartesian.clone());
+                        markers.addBillboard(positions[0]);
+                    }
+                    if (positions.length >= minPoints) {
+                        poly.positions = positions;
+                        poly._createPrimitive = true;
+                    }
+                    // add new point to polygon
+                    // this one will move with the mouse
+                    positions.push(cartesian);
+                    // add marker at the new position
+                    markers.addBillboard(cartesian);
+                }
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        mouseHandler.setInputAction(function (movement) {
+            var position = movement.endPosition;
+            if (position != null) {
+                if (positions.length == 0) {
+                    tooltip.showAt(position, "<p>Click to add first point</p>");
+                } else {
+                    var cartesian = scene.camera.pickEllipsoid(position, ellipsoid);
+                    if (cartesian) {
+                        positions.pop();
+                        // make sure it is slightly different
+                        cartesian.y += (1 + Math.random());
+                        positions.push(cartesian);
+                        if (positions.length >= minPoints) {
+                            poly.positions = positions;
+                            poly._createPrimitive = true;
+                        }
+                        // update marker
+                        markers.getBillboard(positions.length - 1).position = cartesian;
+                        // show tooltip
+                        tooltip.showAt(position, "<p>Click to add new point (" + positions.length + ")</p>" + (positions.length > minPoints ? "<p>Double click to finish drawing</p>" : ""));
+                    }
+                }
+            }
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+        mouseHandler.setInputAction(function (movement) {
+            var position = movement.position;
+            if (position != null) {
+                if (positions.length < minPoints + 2) {
+                    return;
+                } else {
+                    var cartesian = scene.camera.pickEllipsoid(position, ellipsoid);
+                    if (cartesian) {
+                        _self.stopDrawing();
+                        if (typeof options.callback == 'function') {
+                            // remove overlapping ones
+                            var index = positions.length - 1;
+                            options.callback(positions);
+                        }
+                    }
+                }
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    }
+    /*
+     * _.prototype.startDrawingPolyline = function (options) {
+        var options = copyOptions(options, defaultPolylineOptions);
+        this.startDrawingPolyshape(false, options);
+    	}
+     */
     
     function getExtentCorners(value) {
         return ellipsoid.cartographicArrayToCartesianArray([Cesium.Rectangle.northwest(value), Cesium.Rectangle.northeast(value), Cesium.Rectangle.southeast(value), Cesium.Rectangle.southwest(value)]);
@@ -792,7 +968,9 @@ var DrawHelper = (function () {
         var poly;
         if (isPolygon) {
             poly = new DrawHelper.PolygonPrimitive(options);
-        } 
+        } else {
+            poly = new DrawHelper.PolylinePrimitive(options);
+        }
         poly.asynchronous = false;
         primitives.add(poly);
 
@@ -896,14 +1074,14 @@ var DrawHelper = (function () {
         }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
     }
 
-    _.prototype.startDrawingStraightArrow = function (options) {
+    _.prototype.startDrawingExtent = function (options) {
 
         var options = copyOptions(options, defaultSurfaceOptions);
 
         this.startDrawing(
             function () {
-                if (arrow != null) {
-                    primitives.remove(arrow);
+                if (extent != null) {
+                    primitives.remove(extent);
                 }
                 markers.remove();
                 mouseHandler.destroy();
@@ -917,7 +1095,7 @@ var DrawHelper = (function () {
         var tooltip = this._tooltip;
 
         var firstPoint = [];
-        var arrow = null;
+        var extent = null;
         var markers = null;
 
         var mouseHandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
@@ -927,20 +1105,20 @@ var DrawHelper = (function () {
             if (movement.position != null) {
                 var cartesian = scene.camera.pickEllipsoid(movement.position, ellipsoid);
                 if (cartesian) {
-                    if (arrow == null) {
+                    if (extent == null) {
                         // create the rectangle
                         let cartographic = Cesium.Cartographic.fromCartesian(cartesian);
         				var len=Cesium.Math.toDegrees(cartographic.longitude);
         				var lat=Cesium.Math.toDegrees(cartographic.latitude);
                         firstPoint.push(len,lat);
                         var value = fineArrow(firstPoint, firstPoint);
-                        arrow = new _.StraightArrowPrimitive({
-                            arrow: value,
+                        extent = new _.ExtentPrimitive({
+                            extent: value,
                             asynchronous: false,
                             material: options.material
                         });
                                                 
-                        primitives.add(arrow);
+                        primitives.add(extent);
                         markers = new _.BillboardGroup(_self, defaultBillboard);
 						var corners = positionToCartesian3([firstPoint,firstPoint]);
                         markers.addBillboards(corners);
@@ -960,7 +1138,7 @@ var DrawHelper = (function () {
         mouseHandler.setInputAction(function (movement) {
             var position = movement.endPosition;
             if (position != null) {
-                if (arrow == null) {
+                if (extent == null) {
                     tooltip.showAt(position, "<p>点击开始绘制</p>");
                 } else {
                     var cartesian = scene.camera.pickEllipsoid(position, ellipsoid);
@@ -969,7 +1147,7 @@ var DrawHelper = (function () {
         				var len=Cesium.Math.toDegrees(cartographic.longitude);
         				var lat=Cesium.Math.toDegrees(cartographic.latitude);
                         var value = fineArrow(firstPoint,[len,lat]);
-                        arrow.setArrow(value);
+                        extent.setExtent(value);
                        // var corners = getExtentCorners(value);
 					    var corners =  positionToCartesian3([firstPoint,[len,lat]]);
                         markers.updateBillboardsPositions(corners);
@@ -1199,7 +1377,46 @@ var DrawHelper = (function () {
                 this._editMode = false;
             }
 
-        }       
+        }
+        
+        DrawHelper.PolylinePrimitive.prototype.setEditable = function () {
+
+            if (this.setEditMode) {
+                return;
+            }
+
+            var polyline = this;
+            polyline.isPolygon = false;
+            polyline.asynchronous = false;
+
+            drawHelper.registerEditableShape(polyline);
+
+            polyline.setEditMode = setEditMode;
+
+            var originalWidth = this.width;
+
+            polyline.setHighlighted = function (highlighted) {
+                // disable if already in edit mode
+                if (this._editMode === true) {
+                    return;
+                }
+                if (highlighted) {
+                    drawHelper.setHighlighted(this);
+                    this.setWidth(originalWidth * 2);
+                } else {
+                    this.setWidth(originalWidth);
+                }
+            }
+
+            polyline.getExtent = function () {
+                return Cesium.Extent.fromCartographicArray(ellipsoid.cartesianArrayToCartographicArray(this.positions));
+            }
+
+            enhanceWithListeners(polyline);
+
+            polyline.setEditMode(false);
+
+        }
         
         DrawHelper.PolygonPrimitive.prototype.setEditable = function () {
 
@@ -1364,19 +1581,19 @@ var DrawHelper = (function () {
 
         }
 
-        DrawHelper.StraightArrowPrimitive.prototype.setEditable = function () {
+        DrawHelper.ExtentPrimitive.prototype.setEditable = function () {
 
             if (this.setEditMode) {
                 return;
             }
 
-            var arrow = this;
+            var extent = this;
             var scene = drawHelper._scene;
 
-            drawHelper.registerEditableShape(arrow);
-            arrow.asynchronous = false;
+            drawHelper.registerEditableShape(extent);
+            extent.asynchronous = false;
 
-            arrow.setEditMode = function (editMode) {
+            extent.setEditMode = function (editMode) {
                 // if no change
                 if (this._editMode == editMode) {
                     return;
@@ -1391,7 +1608,7 @@ var DrawHelper = (function () {
                         var markers = new _.BillboardGroup(drawHelper, dragBillboard);
                         removeObj.billBoard.push(markers);
                         function onEdited() {
-                            arrow.executeListeners({ name: 'onEdited', arrow: arrow.arrow });
+                            extent.executeListeners({ name: 'onEdited', extent: extent.extent });
                         }
                         var handleMarkerChanges = {
                             dragHandlers: {
@@ -1400,8 +1617,8 @@ var DrawHelper = (function () {
 									var corner = markers.getBillboard((index+1)%2).position;
 									var second = mousePositionToCartesian3(corner);
 									var value = index==0?fineArrow(first,second):fineArrow(second,first);
-                                    arrow.setArrow(value);
-                                    markers.updateBillboardsPositions(getArrowCorners(arrow.arrow));
+                                    extent.setExtent(value);
+                                    markers.updateBillboardsPositions(getArrowCorners(extent.extent));
                                 },
                                 onDragEnd: function (index, position) {
                                     onEdited();
@@ -1412,16 +1629,17 @@ var DrawHelper = (function () {
                             }
                         };
 
-                        markers.addBillboards(getArrowCorners(arrow.arrow), handleMarkerChanges);
+                        markers.addBillboards(getArrowCorners(extent.extent), handleMarkerChanges);
                         this._markers = markers;
                         // add a handler for clicking in the globe
                         this._globeClickhandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
                         this._globeClickhandler.setInputAction(
                             function (movement) {
-                                var pickedObject = scene.pick(movement.position);                              
+                                var pickedObject = scene.pick(movement.position);
+                                console.log("ExtentPrimitive单击");
                                 // disable edit if pickedobject is different or not an object
                                 if (!(pickedObject && pickedObject.primitive)) {
-                                    arrow.setEditMode(false);
+                                    extent.setEditMode(false);
                                 }
                             }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
@@ -1439,11 +1657,11 @@ var DrawHelper = (function () {
                 }
             }
 
-            arrow.setHighlighted = setHighlighted;
+            extent.setHighlighted = setHighlighted;
 
-            enhanceWithListeners(arrow);
+            enhanceWithListeners(extent);
 
-            arrow.setEditMode(false);
+            extent.setEditMode(false);
 
         }
         
@@ -1466,7 +1684,8 @@ var DrawHelper = (function () {
                 circleIcon: "./img/glyphicons_095_vector_path_circle.png",
                 tailedAttackArrowIcon:"./img/gongjijiantou.png",
                 extentIcon: "./img/zhijiaojiantou.png",
-                clearIcon: "./img/glyphicons_067_cleaning.png",                
+                clearIcon: "./img/glyphicons_067_cleaning.png",
+                polylineDrawingOptions: defaultPolylineOptions,
                 polygonDrawingOptions: defaultPolygonOptions,
                 extentDrawingOptions: defaultExtentOptions,
                 circleDrawingOptions: defaultCircleOptions
@@ -1497,9 +1716,9 @@ var DrawHelper = (function () {
             var scene2 = drawHelper._scene;
             
            addIcon('extent', options.extentIcon, '点击以绘制直箭头', function () {
-                drawHelper.startDrawingStraightArrow({
-                    callback: function (arrow) {
-                        _self.executeListeners({ name: 'straightArrowCreated', arrow: arrow });
+                drawHelper.startDrawingExtent({
+                    callback: function (extent) {
+                        _self.executeListeners({ name: 'extentCreated', extent: extent });
                     }
                 });
             })
