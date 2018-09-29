@@ -1,3 +1,8 @@
+/**
+ * Created by xph
+   此代码基于MIT开源协议，引用请注明版权
+   Licensed under the MIT license
+ */
 var P = {version: "1.0.0"}
 P.PlotUtils = {}, P.PlotUtils.distance = function(t, o) {
 	return Math.sqrt(Math.pow(t[0] - o[0], 2) + Math.pow(t[1] - o[1], 2))
