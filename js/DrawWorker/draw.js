@@ -1,3 +1,8 @@
+/**
+ * Created by xph
+   此代码基于MIT开源协议，引用请注明版权
+   Licensed under the MIT license
+ */
 var center = [110.98, 30.83];
 var timer = null;
 var viewer = null;
