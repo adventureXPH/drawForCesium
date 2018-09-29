@@ -1,3 +1,8 @@
+/**
+ * Created by xph
+   此代码基于MIT开源协议，引用请注明版权
+   Licensed under the MIT license
+ */
 var xp = {version: "1.0.0",createTime:"2018.6.19",author:"xupinhui"}
 var doubleArrowDefualParam = {type:"doublearrow",headHeightFactor:.25,
 	headWidthFactor:.3,neckHeightFactor:.85,fixPointCount:4,neckWidthFactor:.15}
