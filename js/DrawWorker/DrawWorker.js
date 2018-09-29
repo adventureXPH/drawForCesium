@@ -1,5 +1,8 @@
+
 /**
  * Created by xph
+   此代码基于MIT开源协议，引用请注明版权
+   Licensed under the MIT license
  */
 
 var DrawHelper = (function () {
